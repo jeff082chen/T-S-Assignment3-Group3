@@ -1,0 +1,32 @@
+# Core
+numpy>=1.26.0
+pandas>=2.1.0
+tqdm>=4.66.1
+
+# HuggingFace ecosystem
+transformers==4.44.2
+tokenizers>=0.19.0
+huggingface-hub>=0.24.0
+safetensors>=0.4.2
+accelerate>=0.30.0
+
+# SentencePiece for translation model
+sentencepiece>=0.1.99
+
+# Torch (Mac ARM64 w/ MPS GPU support)
+torch==2.3.1
+torchaudio==2.3.1
+torchvision==0.18.1
+
+# Language detection
+langdetect>=1.0.9
+
+# HTTP and data processing
+requests>=2.31.0
+urllib3>=2.1.0
+
+# JSON handling / regex
+regex>=2023.10.3
+
+# Local inference model (Ollama)
+ollama>=0.1.7

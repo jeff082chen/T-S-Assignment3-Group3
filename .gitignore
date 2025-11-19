@@ -1,0 +1,7 @@
+.env
+.pyc
+*dictionary*.txt
+.DS_Store
+*__pycache__
+prompt.sh
+python_files
