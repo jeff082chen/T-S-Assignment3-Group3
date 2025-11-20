@@ -1,3 +1,8 @@
-"""Init file for module"""
-from .automated_labeler import *
-from .label import *
+from .policy_proposal_labeler import AutomatedLabeler
+from .label import label_post, did_from_handle
+
+__all__ = [
+    "AutomatedLabeler",
+    "label_post",
+    "did_from_handle",
+]

@@ -5,3 +5,52 @@
 *__pycache__
 prompt.sh
 python_files
+
+# =========================================
+# Python
+# =========================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.pkl
+*.pickle
+
+# Virtual environments created by uv
+.venv/
+.uv/
+.uv_cache/
+uv.lock
+
+# uv build artifacts
+build/
+dist/
+*.egg-info/
+site-packages/
+
+# MacOS junk
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# Temporary files
+*.tmp
+*.cache
+*~
+.env
+.env.*
+
+bluesky-assign3/models/*
