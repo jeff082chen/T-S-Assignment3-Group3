@@ -32,6 +32,8 @@ from transformers import (
 # ======================================================
 # Paths
 # ======================================================
+if not os.path.exists("models"):
+    os.makedirs("models")
 LOCAL_NLLB_DIR   = "models/nllb/"
 LOCAL_TOXIC_DIR  = "models/toxic-bert/"
 LOCAL_ADULT_DIR  = "models/adult-bert/"
