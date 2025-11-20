@@ -31,6 +31,7 @@ def build_context_string(features: Optional[dict]) -> str:
         return str(value)
 
     text = _safe_text(features.get("text", ""))
+    author = _safe_text(features.get("author_handle", ""))
 
     quoted_author = _safe_text(features.get("quoted_author", ""))
     quoted_text = _safe_text(features.get("quoted_text", ""))
@@ -49,24 +50,41 @@ def build_context_string(features: Optional[dict]) -> str:
     mentions = [str(m) for m in mentions if m]
     tags = [str(t) for t in tags if t]
 
-    # ---- Build readable context ----
     context_parts = []
 
-    context_parts.append(f"Original post: {text}")
+    # Author + Post
+    if author:
+        context_parts.append(f"Author: @{author}")
+    else:
+        context_parts.append("Author: [unknown]")
 
-    if quoted_text:
-        context_parts.append(f"Quoted from {quoted_author}: {quoted_text}")
+    context_parts.append(f"Post: {text if text else '[empty]'}")
 
-    if parent_text:
-        context_parts.append(f"Replying to {parent_author}: {parent_text}")
+    # Reply context
+    if parent_author or parent_text:
+        s = "Reply to "
+        if parent_author:
+            s += f"@{parent_author}"
+        if parent_text:
+            s += f": {parent_text}"
+        context_parts.append(s)
 
+    # Quoted context
+    if quoted_author or quoted_text:
+        s = "Quoted"
+        if quoted_author:
+            s += f" @{quoted_author}"
+        if quoted_text:
+            s += f": {quoted_text}"
+        context_parts.append(s)
+
+    # Mentions
     if mentions:
-        mention_str = ", ".join(mentions)
-        context_parts.append(f"Mentions: {mention_str}")
+        context_parts.append(f"Mentions: {';'.join(mentions)}")
 
+    # Tags
     if tags:
-        tag_str = ", ".join(tags)
-        context_parts.append(f"Tags: {tag_str}")
+        context_parts.append(f"Tags: {';'.join(tags)}")
 
     context_string = "\n".join(context_parts).strip()
 

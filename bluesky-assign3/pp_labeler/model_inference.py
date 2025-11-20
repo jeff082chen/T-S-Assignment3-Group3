@@ -21,13 +21,26 @@ This file exposes four public functions:
 
 import os
 import torch
-import numpy as np
-import subprocess
+from langdetect import detect
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
     AutoModelForSeq2SeqLM,
 )
+
+# ======================================================
+#  GLOBAL CONFIG (EXTRACTED THRESHOLDS)
+# ======================================================
+
+# Toxic-BERT thresholds (from original Step3 logic)
+TOX_TOXIC_THRESHOLD = 0.45
+TOX_OTHER_THRESHOLD = 0.12
+
+# Adult classifier threshold (original Step3: prob > 0.5)
+ADULT_THRESHOLD = 0.50
+
+# Attack classifier threshold (original Step3: 0.5)
+ATTACK_THRESHOLD = 0.75
 
 # ======================================================
 # Paths
@@ -41,7 +54,6 @@ LOCAL_ATTACK_DIR = "models/attack-classifier/"
 
 # torch device
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 # ======================================================
 # Utility function: load local or download
@@ -110,7 +122,7 @@ adult_tokenizer, adult_model = load_local_or_remote(
 # ======================================================
 # 4. Distilled attack classifier (your model)
 # ======================================================
-print(f"[INFO] Loading attack classifier...")
+print("[INFO] Loading attack classifier...")
 
 attack_tokenizer, attack_model = load_local_or_remote(
     LOCAL_ATTACK_DIR,
@@ -139,48 +151,57 @@ if adult_model:
 if attack_model:
     attack_model.to(device)
 
-
-# ============================================================
-#               1. TRANSLATION
-# ============================================================
+# ======================================================
+# 1. NLLB translator
+# ======================================================
 
 def translate_to_english(text: str) -> str:
     """
-    If NLLB is available: translate text into English.
-    Otherwise: identity function.
+    Add lang detection + match original Step3 translation behavior
     """
+    if not isinstance(text, str):
+        return ""
+
+    # ---- NEW: Detect language ----
+    try:
+        lang = detect(text)
+        if lang == "en":
+            return text
+    except Exception:
+        pass
+
     if not nllb_model:
         return text  # fallback
 
     inputs = nllb_tokenizer(text, return_tensors="pt").to(device)
 
-    # NOTE: Exact translation pipeline depends on model type.
-    # If using NLLB text-to-text model, replace this with generate().
     try:
         generated = nllb_model.generate(
             inputs.input_ids,
+            max_length=256,
+            num_beams=5,
+            early_stopping=True,
             forced_bos_token_id=nllb_tokenizer.lang_code_to_id["eng_Latn"]
         )
-        translation = nllb_tokenizer.decode(generated[0], skip_special_tokens=True)
-        return translation
-    except:
-        # fallback
+        return nllb_tokenizer.decode(generated[0], skip_special_tokens=True)
+    except Exception:
         return text
 
 
-# ============================================================
-#               2. TOXICITY SCORING
-# ============================================================
+# ======================================================
+# 2. TOXICITY SCORING
+# ======================================================
 
-TOXICITY_DIMENSIONS = ["toxicity", "severe_toxicity", "obscene", "insult",
-                       "identity_attack", "threat"]
+TOXICITY_DIMENSIONS = [
+    "toxicity",
+    "severe_toxicity",
+    "obscene",
+    "insult",
+    "identity_attack",
+    "threat"
+]
 
 def compute_toxicity_scores(text_en: str) -> dict:
-    """
-    Returns a dict of toxicity scores.
-
-    If Toxic-BERT is not loaded, return zeros.
-    """
     if not toxic_model:
         return {k: 0.0 for k in TOXICITY_DIMENSIONS}
 
@@ -198,65 +219,58 @@ def compute_toxicity_scores(text_en: str) -> dict:
     return {dim: float(score) for dim, score in zip(TOXICITY_DIMENSIONS, logits)}
 
 
-# ============================================================
-#               3. ADULT CONTENT / PROFANITY FUSION
-# ============================================================
+# ======================================================
+# 3. ADULT CONTENT / PROFANITY (RESTORE ORIGINAL LOGIC)
+# ======================================================
 
-# recommended threshold from your Step3 logic:
-SEXUAL_EXPLICIT_THRESHOLD = 0.40
-OBSCENE_THRESHOLD = 0.35
-
-def compute_adult_toxicity_flag(text_en: str, tox_scores: dict) -> bool:
+def compute_adult_toxicity_flag(text_en: str, tox: dict) -> bool:
     """
-    Decide whether the post is 'adult / profanity'.
-
-    Combines Toxic-BERT + Adult-BERT model.
-
-    Returns:
-        True  → classify as profanity
-        False → classify as neutral
+    EXACT matching Step3 logic:
+       tox_final = compute_pred_tox_final
+       pred_tox_adult_final = tox_final OR adult_label
     """
-    # If adult classifier unavailable, fallback to toxicity thresholds
-    if not adult_model:
-        return (
-            tox_scores["obscene"] > OBSCENE_THRESHOLD or
-            tox_scores["toxicity"] > 0.5 or
-            tox_scores["severe_toxicity"] > 0.3
-        )
 
-    # -------- Adult classifier prediction --------
-    enc = adult_tokenizer(
-        text_en,
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=256
-    ).to(device)
-
-    with torch.no_grad():
-        logits = adult_model(**enc).logits
-        prob = torch.softmax(logits, dim=-1)[0, 1].item()  # probability of "adult"
-
-    # Fusion rule (example from your step3):
-    return (
-        prob > 0.55 or
-        tox_scores["obscene"] > OBSCENE_THRESHOLD or
-        tox_scores["identity_attack"] > 0.4
+    # ---- Step3: compute_pred_tox_final ----
+    tox_final = (
+         tox["toxicity"] > TOX_TOXIC_THRESHOLD
+         or any(tox[k] > TOX_OTHER_THRESHOLD for k in [
+             "severe_toxicity",
+             "obscene",
+             "threat",
+             "insult",
+             "identity_attack",
+         ])
     )
 
+    # ---- Adult classifier → prob > 0.5 ----
+    if not adult_model:
+        adult_flag = False
+    else:
+        enc = adult_tokenizer(
+            text_en,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=256
+        ).to(device)
 
-# ============================================================
-#               4. TARGETED ATTACK DETECTOR
-# ============================================================
+        with torch.no_grad():
+            logits = adult_model(**enc).logits
+            prob = torch.sigmoid(logits)[0].item() if logits.shape[-1] == 1 else torch.softmax(logits, dim=-1)[0,1].item()
 
-ATTACK_THRESHOLD = 0.55   # tune based on your validation
+        adult_flag = (prob > ADULT_THRESHOLD)
+
+    # ---- Step3 final ----
+    return bool(tox_final or adult_flag)
+
+
+# ======================================================
+# 4. ATTACK CLASSIFIER (RESTORE SINGLE-LOGIT BEHAVIOR)
+# ======================================================
 
 def compute_attack_label(context: str) -> bool:
-    """
-    Returns True/False from your distilled DeBERTa attack classifier.
-    """
     if not attack_model:
-        return False  # fallback
+        return False
 
     enc = attack_tokenizer(
         context,
@@ -269,15 +283,11 @@ def compute_attack_label(context: str) -> bool:
     with torch.no_grad():
         logits = attack_model(**enc).logits
 
-    # Case 1: model outputs 2 logits → normal classifier
-    if logits.shape[-1] == 2:
-        prob = torch.softmax(logits, dim=-1)[0, 1].item()
-
-    # Case 2: model outputs 1 logit → sigmoid binary classifier
-    elif logits.shape[-1] == 1:
+    # ORIGINAL Step3 uses 1-logit sigmoid → we enforce that
+    if logits.shape[-1] == 1:
         prob = torch.sigmoid(logits)[0, 0].item()
-
     else:
-        raise ValueError(f"Unexpected logits shape: {logits.shape}")
+        # enforce equivalent transformation: use only logit[1]
+        prob = torch.sigmoid(logits[0, 1]).item()
 
-    return prob >= ATTACK_THRESHOLD
+    return prob > ATTACK_THRESHOLD

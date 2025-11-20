@@ -43,6 +43,19 @@ def parse_bsky_url(url: str) -> Tuple[str, str]:
 
     return handle, rkey
 
+def did_to_handle(client, did: str) -> str:
+    """
+    Convert a DID to its handle using atproto client.
+
+    Fallback: return DID if lookup fails.
+    """
+    if not did:
+        return ""
+    try:
+        prof = client.get_profile(did)
+        return getattr(prof, "handle", None) or did
+    except Exception:
+        return did
 
 # ------------------------------------------------------------------------------
 # Main single-post fetcher (for assignment)
@@ -166,14 +179,18 @@ def fetch_single_post_features(url: str, client: Client) -> Dict[str, object]:
     mentions: List[str] = []
     tags: List[str] = []
 
+    mentions: List[str] = []
     facets = getattr(record, "facets", None) or []
     for facet in facets:
         features = getattr(facet, "features", None) or []
         for feature in features:
-            if hasattr(feature, "did"):
-                mentions.append(feature.did)
-            if hasattr(feature, "tag"):
-                tags.append(feature.tag)
+            did = getattr(feature, "did", None)
+            if did:
+                handle = did_to_handle(client, did)
+                mentions.append(handle)
+            tag = getattr(feature, "tag", None)
+            if tag:
+                tags.append(tag)
 
     record_tags = getattr(record, "tags", None) or []
     for tag in record_tags:
