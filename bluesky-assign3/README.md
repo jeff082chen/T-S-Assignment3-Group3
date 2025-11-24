@@ -45,9 +45,28 @@ cp .env-TEMPLATE .env
 # PW = "<your_app_password>"
 ```
 
-Models
-------
-Pre-fetched models live in `models/` (`nllb`, `toxic-bert`, `adult-bert`, `attack-classifier`). If you remove them, the code will download from HuggingFace on first run (needs network access and disk space).
+Structure
+-----------
+```bash
+bluesky-assign3
+├── models                               # HuggingFace model caches
+│   ├── adult-bert
+│   ├── attack-classifier
+│   ├── nllb
+│   └── toxic-bert
+├── pp_labeler                           # Labeler utilities
+│   ├── __init__.py 
+│   ├── build_context.py                 # Biuld input context for models
+│   ├── fetch_features.py                # Fetch post data from Bluesky
+│   └── model_inference.py               # Run model inference
+├── pylabel                              # Labeler entry point
+│   ├── __init__.py
+│   ├── label.py                         # Labeler base class
+│   └── policy_proposal_labeler.py       # Main labeler class
+├── test-data                            # Ground truth test data
+│   └── data.csv
+└── test_labeler.py                      # Main test script
+```
 
 Running the test harness
 ------------------------
@@ -56,23 +75,6 @@ The provided script checks that the labeler returns expected outputs for a CSV o
 python test_labeler.py test-data test-data/data.csv
 ```
 - The script logs any mismatches, then prints accuracy.
-
-Emit labels to Bluesky (optional)
----------------------------------
-If you want to actually apply labels via your labeler account, add `--emit_labels`:
-```bash
-python test_labeler.py <labeler_inputs_dir> test-data/data.csv --emit_labels
-```
-This uses the credentials in `.env` to log in, proxy as a labeler, and emit labels for any non-empty predictions.
-
-Optional threshold debugging
-----------------------------
-To recompute evaluation metrics for the tuned thresholds:
-```bash
-python debug_thresholds.py
-python threshold_eval.py debug_metrics.csv
-```
-This prints accuracy plus precision/recall splits for neutral vs toxic and targeted vs profanity.
 
 Project layout
 --------------

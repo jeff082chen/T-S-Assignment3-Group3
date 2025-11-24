@@ -1,3 +1,9 @@
+# Assignment submissions
+
+Group Number: 3
+Group Members: Rachel Keels (rk839), Jeffrey Chen (jc3765), Po-Yo Juan (pj298), Rohil Saraf (rs2685)
+Submissions: [README](bluesky-assign3/README.md), [Paper Report](Group3_T&S_Automated_Labeler_Report.pdf), [Slide](Group3_Vedio_Slide_v2.pdf)
+
 # Syllabus for CS 5342
 
 Welcome to CS 5342, Trust and Safety: Platforms, Policies, Products.  Trust and
