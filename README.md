@@ -2,7 +2,7 @@
 
 Group Number: 3  
 Group Members: Rachel Keels (rk839), Jeffrey Chen (jc3765), Po-Yo Juan (pj298), Rohil Saraf (rs2685)  
-Submissions: [README](bluesky-assign3/README.md), [Paper Report](Group3_T&S_Automated_Labeler_Report.pdf), [Slide](Group3_Video_Slide_v2.pdf), [Video](Group3_Video_Presentation.mp4)
+Submissions: [README](bluesky-assign3/README.md), [Paper Report](Group3_T&S_Automated_Labeler_Report.pdf), [Slide](Group3_Video_Slide_v2.pdf), [Video](Group3_Video_Presentation.mp4), [Video Drive Link](https://drive.google.com/file/d/198rPdc1Js7nM32x4Wc8jafSshZvfA0GA/view?usp=sharing)
 
 # Syllabus for CS 5342
 
